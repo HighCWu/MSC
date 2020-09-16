@@ -61,7 +61,7 @@ class MeanShift(nn.Conv2d):
 
 
 class ResBlock(nn.Module):
-    def __init__(self, conv, n_feats, kernel_size, bias=True, bn=False, act=nn.ReLU(True), atrous=False):
+    def __init__(self, conv, n_feats, kernel_size, bias=True, bn=True, act=nn.ReLU(True), atrous=False):
 
         super(ResBlock, self).__init__()
         m = []
@@ -90,7 +90,7 @@ class ResBlock(nn.Module):
 
 
 class Upsampler(nn.Sequential):
-    def __init__(self, conv, scale, n_feats, bn=False, act=False, bias=True):
+    def __init__(self, conv, scale, n_feats, bn=True, act='relu', bias=True):
 
         m = []
         if (scale & (scale - 1)) == 0:  # Is scale = 2^n?

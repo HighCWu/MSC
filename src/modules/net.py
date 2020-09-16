@@ -99,18 +99,22 @@ class EDSRLikeEnc(vis.summarizable_module.SummarizableModule):
         n_resblock = config_ms.enc.num_blocks
 
         # Downsampling
-        self.down = conv(Cf, Cf, kernel_size=5, stride=2)
+        self.down = nn.Sequential(
+            conv(Cf, Cf*2, kernel_size=3, stride=1), 
+            nn.BatchNorm2d(Cf*2),
+            nn.ReLU(True),
+        )
 
         # Body
         m_body = [
-            edsr.ResBlock(conv, Cf, kernel_size, act=nn.ReLU(True))
+            edsr.ResBlock(conv, Cf*2, kernel_size, act=nn.ReLU(True))
             for _ in range(n_resblock)
         ]
-        m_body.append(conv(Cf, Cf, kernel_size))
         self.body = nn.Sequential(*m_body)
 
         # to Quantizer
-        to_q = [conv(Cf, C, 1)]
+        # use the `kernel_size` instead of 1 for continuity
+        to_q = [conv(Cf*2, C, kernel_size)]
         if self.training:
             to_q.append(
                 # start scale from 1, as 0 is RGB
@@ -159,16 +163,20 @@ class EDSRDec(nn.Module):
         kernel_size = config_ms.kernel_size
         C = config_ms.q.C
 
-        after_q_kernel = 1
-        self.head = conv(C, config_ms.Cf, after_q_kernel)
+        after_q_kernel = kernel_size # 1
+        self.head = nn.Sequential(
+            conv(C, Cf*2, after_q_kernel),
+            nn.BatchNorm2d(Cf*2),
+            nn.ReLU(True),
+        )
         m_body = [
-            edsr.ResBlock(conv, Cf, kernel_size, act=nn.ReLU(True))
+            edsr.ResBlock(conv, Cf*2, kernel_size, act=nn.ReLU(True))
             for _ in range(n_resblock)
         ]
         
-        m_body.append(conv(Cf, Cf, kernel_size))
+        m_body.append(conv(Cf*2, Cf, kernel_size))
         self.body = nn.Sequential(*m_body)
-        self.tail = edsr.Upsampler(conv, 2, Cf, act=False)
+        self.tail = edsr.Upsampler(conv, 2, Cf, act='relu')
 
     def forward(self, x, features_to_fuse=None):
         """
